@@ -1,0 +1,226 @@
+# 🚀 Vector Addition: CPU vs GPU
+
+## 📊 The Problem
+
+Let's add two vectors element-wise:
+
+```
+a = [1, 2, 3]
+b = [1, 2, 3]
+result = [2, 4, 6]
+
+```
+
+---
+
+## 🐌 CPU Version: Sequential Processing
+
+### Loop through the entire length and add elements ONE BY ONE
+```
+for i in len(a):
+    print(a[i] + b[i])
+
+```
+
+**⏰ Time Complexity:** O(n) - processes elements **sequentially** 🐢
+
+I might have to look through everything, so more data = more time
+
+---
+
+## ⚡ GPU Version: Parallel Processing
+
+### 🎯 Key Strategy
+- **Spin up as many threads as data elements** 🧵🧵🧵
+- **Each thread handles ONE element** 
+- **All threads work in PARALLEL** 🔥
+
+### 🔥 Parallel Execution
+
+// ALL threads execute SIMULTANEOUSLY! ⚡
+
+
+```
+Thread 0:   a[0] + b[0]  → result[0]  ✅
+Thread 1:   a[1] + b[1]  → result[1]  ✅
+Thread 2:   a[2] + b[2]  → result[2]  ✅
+...
+Thread 99:  a[99] + b[99]  → result[99]  ✅
+Thread 100: a[100] + b[100] → result[100] ✅
+```
+
+**⏰ Time Complexity:** O(1) - all operations happen **at once**! 
+
+I know exactly where to look, regardless of how much data there is
+
+**SIMT (Single Instruction, Multiple Threads)**
+
+---
+
+### 📐 Visual Layout of BLOCKS, THREADS within a GRID
+
+```
+Thread  |    0  1  2  3
+-------------------------
+block 0 | [  0  1  2  3 ]   ← IDs: 0, 1, 2, 3
+block 1 | [  0  1  2  3 ]   ← IDs: 4, 5, 6, 7
+block 2 | [  0  1  2  3 ]   ← IDs: 8, 9, 10, 11  
+block 3 | [  0  1  2  3 ]   ← IDs: 12, 13, 14, 15
+```
+
+<img src="../assets/software_abstraction.png?version=5" width="800" height="600">
+
+## 🎯 How Do We Get Thread IDs?
+
+### 🧮 Global Thread ID Formula
+
+```
+global_thread_id = (block_id × threads_per_block) + thread_id_within_block
+```
+
+Block 2, Thread 0:  global_id = 2 × 4 + 0 = 8  ✅
+Block 2, Thread 1:  global_id = 2 × 4 + 1 = 9  ✅
+Block 2, Thread 2:  global_id = 2 × 4 + 2 = 10 ✅
+Block 2, Thread 3:  global_id = 2 × 4 + 3 = 11 ✅
+
+Block 3, Thread 0:  global_id = 3 × 4 + 0 = 12 ✅
+Block 3, Thread 1:  global_id = 3 × 4 + 1 = 13 ✅
+Block 3, Thread 2:  global_id = 3 × 4 + 2 = 14 ✅
+Block 3, Thread 3:  global_id = 3 × 4 + 3 = 15 ✅
+
+### Import Libs
+
+```mojo
+from gpu import thread_idx, block_idx
+from gpu.host import DeviceContext, DeviceBuffer, HostBuffer
+from gpu.memory import AddressSpace
+from layout import Layout, LayoutTensor
+from math import iota
+from sys import sizeof
+from math import ceildiv
+from sys import has_accelerator
+from gpu.host import DeviceContext
+from gpu import block_dim, block_idx, thread_idx
+from layout import Layout, LayoutTensor
+```
+
+```mojo
+# Vector data type and size
+alias float_dtype = DType.float32
+alias vector_size = 9
+alias layout = Layout.row_major(vector_size)
+```
+
+```mojo
+# Calculate the number of thread blocks needed by dividing the vector size
+# by the block size and rounding up.
+alias block_size = 3
+alias num_blocks = ceildiv(vector_size, block_size)
+num_blocks
+```
+
+```text
+3
+```
+
+### Write the kernel
+
+```mojo
+fn vector_addition_kernel(
+    lhs_tensor: LayoutTensor[float_dtype, layout, MutableAnyOrigin],
+    rhs_tensor: LayoutTensor[float_dtype, layout, MutableAnyOrigin],
+    out_tensor: LayoutTensor[float_dtype, layout, MutableAnyOrigin],
+):
+
+
+    # Get the global ID
+    var tid = block_idx.x * block_dim.x + thread_idx.x
+
+    # let each thread add the elements and store in result
+    out_tensor[tid] = lhs_tensor[tid] + rhs_tensor[tid] 
+```
+
+```mojo
+
+# Get a reference to GPU
+ctx = DeviceContext()
+
+# Create DeviceBuffers for the input vectors
+lhs_device_buffer = ctx.enqueue_create_buffer[float_dtype](vector_size)
+rhs_device_buffer = ctx.enqueue_create_buffer[float_dtype](vector_size)
+```
+
+### Init
+
+```mojo
+with lhs_device_buffer.map_to_host() as host_buffer:  # **Maps** the device buffer to host-accessible memory
+    iota(host_buffer.unsafe_ptr(), vector_size) # `iota` fills an array/buffer with **sequential integers** starting from 0:
+    print(host_buffer)
+```
+
+```text
+HostBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+```
+
+```mojo
+with rhs_device_buffer.map_to_host() as host_buffer:  # **Maps** the device buffer to host-accessible memory
+    iota(host_buffer.unsafe_ptr(), vector_size) # `iota` fills an array/buffer with **sequential integers** starting from 0:
+    print(host_buffer)
+```
+
+```text
+HostBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+```
+
+```mojo
+lhs_device_buffer
+```
+
+```text
+DeviceBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+```
+
+```mojo
+rhs_device_buffer
+```
+
+```text
+DeviceBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+```
+
+```mojo
+    # Create a DeviceBuffer for the result vector
+result_device_buffer = ctx.enqueue_create_buffer[float_dtype](
+        vector_size
+    )
+```
+
+### Create Layout Tensors and Call the Kernel
+
+```mojo
+    # Wrap the DeviceBuffers in LayoutTensors
+lhs_tensor = LayoutTensor[float_dtype, layout](lhs_device_buffer)
+rhs_tensor = LayoutTensor[float_dtype, layout](rhs_device_buffer)
+result_tensor = LayoutTensor[float_dtype, layout](result_device_buffer)
+
+    # Compile and enqueue the kernel
+ctx.enqueue_function_checked[vector_addition_kernel, vector_addition_kernel](
+        lhs_tensor,
+        rhs_tensor,
+        result_tensor,
+        grid_dim=num_blocks,
+        block_dim=block_size,
+    )
+```
+
+### Print the Results
+
+```mojo
+with result_device_buffer.map_to_host() as host_buffer:
+    var host_tensor = LayoutTensor[float_dtype, layout](host_buffer)
+    print(host_tensor)
+```
+
+```text
+0.0 2.0 4.0 6.0 8.0 10.0 12.0 14.0 16.0
+```

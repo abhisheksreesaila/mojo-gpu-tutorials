@@ -1,0 +1,277 @@
+## Todays Topics
+
+- Discuss different types of memory
+- Create a global memory, initialize data
+- Introduction to LayoutTensor - Powerful abstraction (or wrapper) around memory
+
+
+<img src="../assets/gpu_memory.png?version=5" width="600" height="400">
+
+## Import Libraries
+
+```mojo
+from gpu import thread_idx, block_idx
+from gpu.host import DeviceContext, DeviceBuffer, HostBuffer
+from gpu.memory import AddressSpace
+from layout import Layout, LayoutTensor
+from math import iota
+from sys import sizeof
+```
+
+## Few Initializations
+
+```mojo
+alias dtype = DType.uint32
+
+# 16 threads
+alias blocks = 4
+alias threads = 4
+# one element per thread
+alias elements_in = blocks * threads
+
+# get reference to GPU
+var ctx = DeviceContext()
+```
+
+### Create buffer (global memory)
+
+Creating the GPU buffer is allocating _global memory_ 🌍 which can be accessed from
+any block and thread inside a GPU kernel, this memory is relatively slow 🐢
+compared to _shared memory_ ⚡ which is shared between all of the threads in a
+block
+
+```mojo
+var in_buffer = ctx.enqueue_create_buffer[dtype](elements_in)
+```
+
+```mojo
+in_buffer
+```
+
+```text
+DeviceBuffer([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+```
+
+📝 **Key Points:**
+- Allocates a buffer on the GPU device with 16 elements (4 blocks × 4 threads) 💾
+- Initially, the device buffer contains all zeros 0️⃣
+
+```mojo
+with in_buffer.map_to_host() as host_buffer:  # **Maps** the device buffer to host-accessible memory
+    iota(host_buffer.unsafe_ptr(), elements_in) # `iota` fills an array/buffer with **sequential integers** starting from 0:
+    print(host_buffer)
+```
+
+```text
+HostBuffer([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+```
+
+```mojo
+in_buffer
+```
+
+```text
+DeviceBuffer([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+```
+
+## Memory Layout 
+
+### Row Major
+
+"Row major" means the values are stored sequentially in memory:
+
+**Logical 4×4 grid visualization:** 🎯
+```
+Row-major layout (4 rows × 4 columns):
+
+        Col 0  Col 1  Col 2  Col 3
+      ┌──────┬──────┬──────┬──────┐
+Row 0 │  0   │  1   │  2   │  3   │
+      ├──────┼──────┼──────┼──────┤
+Row 1 │  4   │  5   │  6   │  7   │
+      ├──────┼──────┼──────┼──────┤
+Row 2 │  8   │  9   │  10  │  11  │
+      ├──────┼──────┼──────┼──────┤
+Row 3 │  12  │  13  │  14  │  15  │
+      └──────┴──────┴──────┴──────┘
+```
+
+### Column Major
+
+"Column major" means memory advances down each column first, then moves to the
+next column.
+
+```
+Memory Layout in Buffer:
+                           
+   Col0 Col1 Col2 Col3        [0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15]
+   ───  ───  ───  ───         │  │  │  │   │  │  │  │   │  │  │   │   │  │  │   │
+Row0│ 0   4   8   12         └──┴──┴──┴───┘  │  │  │   │  │  │   │   │  │  │   │
+    │                           Col 0 ✅      │  │  │   │  │  │   │   │  │  │   │
+Row1│ 1   5   9   13                         └──┴──┴───┘  │  │   │   │  │  │   │
+    │                                           Col 1 ✅   │  │   │   │  │  │   │
+Row2│ 2   6   10  14                                      └──┴───┴───┘  │  │   │
+    │                                                        Col 2 ✅   │  │   │
+Row3│ 3   7   11  15                                                    └──┴───┘
+                                                                          Col 3 ✅
+                                                                          ```
+
+### Introducing : LayoutTensor
+
+- Convenient way to arrange memory layout
+- `LayoutTensor` is a **view** of the data in buffer
+- 🛠️ Provides rich API for operations without managing raw memory
+
+```
+┌─────────────────────────────────────────┐
+│  DeviceBuffer (Memory Owner) 💾         │
+│  [0, 1, 2, 3, 4, 5, 6, 7, 8, ...]      │
+└─────────────────────────────────────────┘
+         ↑           ↑           ↑
+         │           │           │
+    👀 View      👀 View     👀 View
+         │           │           │
+┌────────┴───┐ ┌─────┴────┐ ┌───┴────────┐
+│ Tensor A   │ │ Tensor B │ │ Tensor C   │
+│ [0:4]      │ │ [4:8]    │ │ reshaped   │
+│ Shape(4,)  │ │ Shape(4,)│ │ Shape(2,2) │
+└────────────┘ └──────────┘ └────────────┘
+```
+
+```mojo
+# step 1 : define style
+alias layoutStyle = Layout.row_major(blocks, threads) # first define the layout style
+ 
+# step 2 : define type
+alias InputTensorType = LayoutTensor[dtype, layoutStyle, MutableAnyOrigin]  # Define a TENSOR (using the data type + layout)
+
+# step 3 : create a instance (of type with style)
+var sampleTensor = InputTensorType(in_buffer)  # create a inst
+```
+
+```text
+/tmp/mdlab/main.mojo:44:39: warning: assignment to 'sampleTensor' was never used; assign to '_' instead?
+    var sampleTensor = InputTensorType(in_buffer)  # create a inst
+                                      ^
+```
+
+```mojo
+# write the kernel
+fn print_values_kernel(i_tensor: InputTensorType):
+    var bid = block_idx.x
+    var tid = thread_idx.x
+    print("block:", bid, "thread:", tid, "val:", i_tensor[bid, tid])
+
+# call the kernel
+ctx.enqueue_function[print_values_kernel](
+    sampleTensor, grid_dim=blocks, block_dim=threads,
+)
+
+# sync
+ctx.synchronize()
+```
+
+```text
+block: 1 thread: 0 val: 4
+block: 1 thread: 1 val: 5
+block: 1 thread: 2 val: 6
+block: 1 thread: 3 val: 7
+block: 2 thread: 0 val: 8
+block: 2 thread: 1 val: 9
+block: 2 thread: 2 val: 10
+block: 2 thread: 3 val: 11
+block: 3 thread: 0 val: 12
+block: 3 thread: 1 val: 13
+block: 3 thread: 2 val: 14
+block: 3 thread: 3 val: 15
+block: 0 thread: 0 val: 0
+block: 0 thread: 1 val: 1
+block: 0 thread: 2 val: 2
+block: 0 thread: 3 val: 3
+```
+
+```mojo
+
+alias layoutStyle_8x2 = Layout.row_major(8, 2) # 8 * 2 layout style
+alias InputTensorType_8x2 = LayoutTensor[dtype, layoutStyle_8x2, MutableAnyOrigin]  # tensor type
+
+# write the kernel
+fn print_values_kernel_8x2(i_tensor_8x2: InputTensorType_8x2):
+    var bid = block_idx.x
+    var tid = thread_idx.x
+    print("block:", bid, "thread:", tid, "value:", i_tensor_8x2[bid, tid])
+
+# context was defined above. Now queue the kernel. Is there any input?
+
+# Yes! We created an array of 16 elements above. Wrap that into "InputTensor" and pass that to the kernel
+var sampleTensor_8x2 = InputTensorType_8x2(in_buffer)  # create a instance of type InputTensor
+
+#Schedule the exec of the kernel. As a pre-req, use the block and threads. You have 16 data elements, so logically use 16 threads (4x4).    You can use however you want.  8x2,  2x8 etc.  
+# but best practice to match the threads with data lement
+# can we have more elements than threads, yes possible. Max about threads and do another roundtrip
+# can we have more threads than data, yes possible. but handle condidtion for threads do not have data. but why complicate life?
+ctx.enqueue_function[print_values_kernel_8x2](
+    sampleTensor_8x2, grid_dim=8, block_dim=2,
+)
+ctx.synchronize()
+```
+
+```text
+block: 1 thread: 0 value: 2
+block: 1 thread: 1 value: 3
+block: 3 thread: 0 value: 6
+block: 3 thread: 1 value: 7
+block: 0 thread: 0 value: 0
+block: 0 thread: 1 value: 1
+block: 6 thread: 0 value: 12
+block: 6 thread: 1 value: 13
+block: 4 thread: 0 value: 8
+block: 4 thread: 1 value: 9
+block: 7 thread: 0 value: 14
+block: 7 thread: 1 value: 15
+block: 2 thread: 0 value: 4
+block: 2 thread: 1 value: 5
+block: 5 thread: 0 value: 10
+block: 5 thread: 1 value: 11
+```
+
+```mojo
+fn multiply_kernel[multiplier: Int](i_tensor: InputTensorType):
+    i_tensor[block_idx.x, thread_idx.x] *= multiplier
+
+ctx.enqueue_function[multiply_kernel[2]](
+    sampleTensor,
+    grid_dim=blocks,
+    block_dim=threads,
+)
+
+#ctx.synchronize()
+#Map to host and print as 2D array
+with in_buffer.map_to_host() as host_buffer:
+    var host_tensor = LayoutTensor[dtype, layoutStyle](host_buffer)
+    print(host_tensor)
+```
+
+```text
+0 2 4 6 
+8 10 12 14 
+16 18 20 22 
+24 26 28 30 
+```
+
+```mojo
+with in_buffer.map_to_host() as host_buffer:
+    var host_tensor = LayoutTensor[dtype, layoutStyle_8x2](host_buffer)
+    print(host_tensor)
+```
+
+```text
+0 2 
+4 6 
+8 10 
+12 14 
+16 18 
+20 22 
+24 26 
+28 30 
+```
