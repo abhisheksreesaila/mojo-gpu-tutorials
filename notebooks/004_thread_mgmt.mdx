@@ -1,12 +1,20 @@
-## Video Overview
+## 🎯 Kernel Tutorial: Adding 10 with Boundary Conditions 🚀
 
-Implement a kernel that adds 10 to each position of vector/matrix `a` and stores it in `output`.
+### 🎬 Video Overview
+Learn how to implement a CUDA kernel that adds 10 to each element of a vector/matrix, but with a twist - handling cases where you have fewer data elements than threads! 🔥
 
-**Note:** _You have fewer data elements than the threads (and some variations)
+### 🧠 The Core Concept
+📝 What We're Building
+A kernel that:
+
+- ✅ Takes input vector/matrix a
+- ✅ Adds 10 to each element
+- ✅ Stores result in output
+- ⚠️ But: Handles boundary conditions when threads > data elements
 
 ## Until now
 
-<img src="../assets/02d.png" width="800" height="600">
+<img src="../assets/02d.png" width="600" height="600">
 
 ## Today
 
@@ -27,15 +35,25 @@ alias dtype = DType.float32
 
 ```mojo
 
-fn add_10_2(
+fn add_10(
     output: UnsafePointer[Scalar[dtype]],
     a: UnsafePointer[Scalar[dtype]],
     size: Int,
 ):
+  
     i = thread_idx.x
-    if i < size:     # 0,1,2,3  (size = 4)
+     #🛡️ CRITICAL BOUNDARY CHECK!
+    if i < size:         # // 🚫 Threads with idx >= n do nothing and return safely
         output[i] = a[i] + 10.0
 
+```
+
+```text
+/tmp/mdlab/main.mojo:24:16: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if i < size:         # // 🚫 Threads with idx >= n do nothing and return safely
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
 ```
 
 ```mojo
@@ -60,31 +78,23 @@ DeviceBuffer([0.0, 1.0, 2.0, 3.0])
 ```mojo
 
 ## call the kernel
-ctx.enqueue_function[add_10](
+ctx.enqueue_function_checked[add_10,add_10](
         out,
         a,
         SIZE,
         grid_dim=BLOCKS_PER_GRID,
         block_dim=THREADS_PER_BLOCK,
     )
-
 print(out)
 ```
 
 ```text
-/tmp/mdlab/main.mojo:31:21: warning: 'DeviceBuffer[DType.float32]' value is unused
-    out.enqueue_fill(0)
-    ~~~~~~~~~~~~~~~~^~~
-    _ = 
-/tmp/mdlab/main.mojo:33:19: warning: 'DeviceBuffer[DType.float32]' value is unused
-    a.enqueue_fill(0)
-    ~~~~~~~~~~~~~~^~~
-    _ = 
+DeviceBuffer([10.0, 11.0, 12.0, 13.0])
 ```
 
 ### 2nd Kernel
 
-<img src="../assets/06d.png?version=4" width="1200" height="800">
+<img src="../assets/06d.png?version=16" width="1200" height="800">
 
 ```mojo
 
@@ -140,6 +150,7 @@ print(a_2k)
 
 ```text
 DeviceBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+
 ```
 
 ```mojo
@@ -161,8 +172,12 @@ DeviceBuffer([10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0])
 
 ## 3rd Kernel
 
+Apply the 2 priniciples
 
-<img src="../assets/07d.png?version=1" width="1200" height="800">
+- convert the local ID -> global ID
+- Use the "i<size" but in 2 dimensions
+
+<img src="../assets/07d.png?version=4" width="1200" height="800">
 
 ```
 
@@ -313,6 +328,7 @@ with out_3k.map_to_host() as out3k_host:
 32.0
 33.0
 34.0
+
 ```
 
 ## 🎯 Key Takeaways: Handling Thread-Data Mismatches
@@ -323,5 +339,5 @@ with out_3k.map_to_host() as out3k_host:
     - Get global Thread index, Then Thread Index < Size of vector
 - **Mulitple Blocks Multi-Dimension**
     - Get Global Row Index
-    - Get Glboal Column Index
+    - Get Global Column Index
     - Ensure both are less than row and column len of the matrix
