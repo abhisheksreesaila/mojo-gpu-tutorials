@@ -1,0 +1,287 @@
+# 🔄 Quick Recap: Key GPU Concepts
+
+Before we dive into parallel reduction, let's refresh the essential concepts! 🧠
+
+---
+
+## 1️⃣ LayoutTensor - GPU Memory Abstraction 📦
+
+**What is it?** A convenient wrapper around raw GPU memory that organizes data into blocks and threads.
+
+```
+# memory layouts
+alias layout = Layout.row_major(SIZE)
+
+# access locations using simple [block, thread]
+tensor[block_id, thread_id]
+
+```
+
+**Why it matters:** Makes GPU memory easy to work with - just use `[block, thread]` indexing! 🎯
+
+---
+
+## 2️⃣ Boundary Conditions - Only Work When Needed 🚧
+
+**What is it?** Checking if a thread should do work or stay idle.
+
+```
+if local_i < stride:  # ✅ Only threads in range work
+    shared[local_i] += shared[local_i + stride]
+# Threads outside range do nothing ❌
+```
+
+**Why it matters:** Prevents threads from accessing invalid memory or doing unnecessary work! 🛡️
+
+---
+
+## 3️⃣ Shared Memory - Fast Local Storage 💾⚡
+
+**What is it?** Block-local memory that's 20-30x faster than global memory.
+
+```
+# ❌ Slow: Read from global memory multiple times
+sum = global[i] + global[i+1] + global[i+2]
+
+# ✅ Fast: Copy once, read from shared memory
+shared[i] = global[i]  # One slow copy
+sum = shared[i] + shared[i+1] + shared[i+2]  # Fast reads!
+```
+
+**Why it matters:** When you need data multiple times, copy to shared first! 🚀
+
+---
+
+## 4️⃣ Barrier - Thread Synchronization 🚦
+
+**What is it?** A checkpoint where ALL threads in a block must wait before continuing.
+
+```
+shared[local_i] = data[i]  # Thread 0 writes
+barrier()  # ⚠️ WAIT! Everyone must finish writing
+result = shared[local_i + 1]  # Thread 1 reads - now safe! ✅
+```
+
+**Why it matters:** Prevents race conditions - ensures all threads finish writing before anyone reads! 🔒
+
+---
+
+## 🎯Your Blueprint for GPU Algorithms
+
+```
+# 1️⃣ LayoutTensor - organize memory
+var tensor = LayoutTensor[dtype, layout](buffer)
+
+# 2️⃣ Boundary condition - check if thread should work
+if thread_idx.x < valid_range:
+    
+    # 3️⃣ Shared memory - copy for fast access
+    shared[thread_idx.x] = tensor[block_idx.x, thread_idx.x]
+    
+    # 4️⃣ Barrier - wait for all copies to complete
+    barrier()
+    
+    # Now safely use shared memory! ✨
+    result = shared[thread_idx.x] + shared[thread_idx.x + 1]
+```
+
+---
+
+## 💡 Remember These Rules
+
+| Concept | Golden Rule |
+|---------|-------------|
+| LayoutTensor 📦 | Use `[block, thread]` indexing - simple! |
+| Boundary 🚧 | Always check `if thread_id < limit` |
+| Shared Memory 💾 | Copy when reusing data multiple times |
+| Barrier 🚦 | Always sync after writing to shared! |
+
+## Import Libs and Init Threads, Blocks, Layout Style
+
+```mojo
+from gpu import thread_idx, block_idx, block_dim, barrier
+from gpu.host import DeviceContext
+from gpu.memory import AddressSpace
+from layout import Layout, LayoutTensor
+from testing import assert_equal
+
+alias TPB = 8
+alias SIZE = 8
+alias BLOCKS_PER_GRID = (1, 1)
+alias THREADS_PER_BLOCK = (TPB, 1)
+alias dtype = DType.float32
+alias layout = Layout.row_major(SIZE)
+alias out_layout = Layout.row_major(1)
+```
+
+## Pooling
+
+Pooling refers to an operation that reduces or summarizes data (often in tensors) by applying a function like max, average, or sum over small windows.
+
+```mojo
+fn pooling[
+    layout: Layout
+](
+    output: LayoutTensor[dtype, layout, MutAnyOrigin],
+    a: LayoutTensor[dtype, layout, ImmutAnyOrigin],
+    size: UInt,
+):
+    # Allocate shared memory using tensor builder
+    shared = LayoutTensor[
+        dtype,
+        Layout.row_major(TPB),
+        MutAnyOrigin,
+        address_space = AddressSpace.SHARED,
+    ].stack_allocation()
+
+    global_i = block_dim.x * block_idx.x + thread_idx.x
+    local_i = thread_idx.x
+
+    # Load data into shared memory
+    if global_i < size:
+        shared[local_i] = a[global_i]
+
+    # Synchronize threads within block
+    barrier()
+
+    # Handle first two special cases
+    if global_i == 0:
+        output[0] = shared[0]
+    elif global_i == 1:
+        output[1] = shared[0] + shared[1]
+    # Handle general case
+    elif UInt(1) < global_i < size:
+        output[global_i] = (
+            shared[local_i - 2] + shared[local_i - 1] + shared[local_i]
+        )
+
+
+```
+
+```mojo
+with DeviceContext() as ctx:
+    out2 = ctx.enqueue_create_buffer[dtype](SIZE)
+    out2.enqueue_fill(0)
+    a2 = ctx.enqueue_create_buffer[dtype](SIZE)
+    a2.enqueue_fill(0)
+
+    with a2.map_to_host() as a2_host:
+        for i in range(SIZE):
+            a2_host[i] = i
+        print("input:", a2_host)
+
+    out_tensor2 = LayoutTensor[dtype, layout, MutAnyOrigin](out2)
+    a_tensor2 = LayoutTensor[dtype, layout, ImmutAnyOrigin](a2)
+
+    ctx.enqueue_function_checked[pooling[layout], pooling[layout]](
+        out_tensor2,
+        a_tensor2,
+        UInt(SIZE),
+        grid_dim=BLOCKS_PER_GRID,
+        block_dim=THREADS_PER_BLOCK,
+    )
+
+    ctx.synchronize()
+
+    with out2.map_to_host() as out_host2:
+        print("out:", out_host2)
+
+```
+
+```text
+input: HostBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+out: HostBuffer([0.0, 1.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0])
+
+```
+
+## Dot Product Kernel
+
+- Mulitply element wise and sum
+
+```[0,1,2] . [0,1,2] =  0*0 + 1*1 + 2*2 = 5```
+
+```mojo
+fn dot_product[
+    in_layout: Layout, out_layout: Layout
+](
+    output: LayoutTensor[dtype, out_layout, MutAnyOrigin],
+    a: LayoutTensor[dtype, in_layout, ImmutAnyOrigin],
+    b: LayoutTensor[dtype, in_layout, ImmutAnyOrigin],
+    size: UInt,
+):
+
+
+# CREATE : Shared Memory
+    shared = LayoutTensor[
+        dtype,
+        Layout.row_major(TPB),
+        MutAnyOrigin,
+        address_space = AddressSpace.SHARED,
+    ].stack_allocation()
+    global_i = block_dim.x * block_idx.x + thread_idx.x
+    local_i = thread_idx.x
+
+ # COPY OPERATION. Instead of blindly copying, multiply and then copy
+    if global_i < size:
+        shared[local_i] = a[global_i] * b[global_i]
+
+    # Synchronize threads within block
+    barrier()
+
+# OPERATION : PARALLEL REDUCTION
+    stride = UInt(TPB // 2)   #first pass : 8/2 = 4
+    while stride > 0:
+        if local_i < stride:  #first pass : thread : 0,1,2,3
+            shared[local_i] += shared[local_i + stride]
+
+        barrier()
+        stride //= 2
+
+    # FINAL RESULT is stored in the "0th" location. Hence the first thread only can write to output
+    if local_i == 0:
+        output[0] = shared[0]
+```
+
+### INIT and Call Kernel
+
+```mojo
+
+with DeviceContext() as ctx:
+    out = ctx.enqueue_create_buffer[dtype](1)
+    out.enqueue_fill(0)
+    a = ctx.enqueue_create_buffer[dtype](SIZE)
+    a.enqueue_fill(0)
+    b = ctx.enqueue_create_buffer[dtype](SIZE)
+    b.enqueue_fill(0)
+
+    #Init : 0,1,2,3..7 in both the vectors
+    with a.map_to_host() as a_host, b.map_to_host() as b_host:
+        for i in range(SIZE):
+            a_host[i] = i
+            b_host[i] = i
+
+    out_tensor = LayoutTensor[dtype, out_layout, MutAnyOrigin](out)
+    a_tensor = LayoutTensor[dtype, layout, ImmutAnyOrigin](a)
+    b_tensor = LayoutTensor[dtype, layout, ImmutAnyOrigin](b)
+
+    alias kernel = dot_product[layout, out_layout]
+    ctx.enqueue_function_checked[kernel, kernel](
+        out_tensor,
+        a_tensor,
+        b_tensor,
+        UInt(SIZE),
+        grid_dim=BLOCKS_PER_GRID,
+        block_dim=THREADS_PER_BLOCK,
+    )
+
+
+    ctx.synchronize()
+  
+  # result : 0 (0*0) + 1 (1*1) + 4 (2*2) + 9 + 16 + 25 + 36 + 49 = 140 
+    with out.map_to_host() as out_host:
+        print("out:", out_host)
+```
+
+```text
+out: HostBuffer([140.0])
+```
