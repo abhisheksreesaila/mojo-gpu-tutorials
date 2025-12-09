@@ -1,0 +1,73 @@
+/* terminal_style.css */
+.terminal-style {
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+    font-size: 15px;
+    background-color: #0d1117;
+    color: #c9d1d9;
+    padding: 20px;
+    border-radius: 6px;
+    line-height: 1.8;
+    
+    /* Smooth font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    
+    /* Better spacing */
+    letter-spacing: 0.3px;
+}
+
+.terminal-style h1 {
+    color: #58a6ff;
+    border-bottom: 2px solid #58a6ff;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.terminal-style h2 {
+    color: #7ee787;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.terminal-style strong {
+    color: #ffa657;
+    font-weight: 600;
+}
+
+.terminal-style code {
+    background-color: #161b22;
+    color: #ffa657;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 14px;
+    letter-spacing: 0.2px;
+}
+
+.terminal-style pre {
+    background-color: #161b22;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #58a6ff;
+    color: #7ee787;
+    overflow-x: auto;
+    letter-spacing: 0.3px;
+    line-height: 1.6;
+}
+
+.terminal-style hr {
+    border-color: #30363d;
+    border-width: 1px;
+    margin: 20px 0;
+}
+
+.terminal-style ul, .terminal-style ol {
+    color: #c9d1d9;
+    line-height: 1.8;
+}
+
+.terminal-style p {
+    margin-bottom: 12px;
+}
