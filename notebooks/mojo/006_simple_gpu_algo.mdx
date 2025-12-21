@@ -191,7 +191,6 @@ with DeviceContext() as ctx:
 ```text
 input: HostBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
 out: HostBuffer([0.0, 1.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0])
-
 ```
 
 ## Dot Product Kernel
@@ -200,7 +199,8 @@ out: HostBuffer([0.0, 1.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0])
 
 ```[0,1,2] . [0,1,2] =  0*0 + 1*1 + 2*2 = 5```
 
-```mojo
+```
+
 fn dot_product[
     in_layout: Layout, out_layout: Layout
 ](

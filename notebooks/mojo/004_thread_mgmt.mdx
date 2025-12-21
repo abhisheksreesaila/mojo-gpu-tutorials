@@ -14,11 +14,11 @@ A kernel that:
 
 ## Until now
 
-<img src="../assets/02d.png" width="600" height="600">
+<img src="../../assets/02d.png" width="600" height="600">
 
 ## Today
 
-<img src="../assets/03d.png" width="800" height="600">
+<img src="../../assets/03d.png" width="800" height="600">
 
 ```mojo
 from memory import UnsafePointer
@@ -94,7 +94,7 @@ DeviceBuffer([10.0, 11.0, 12.0, 13.0])
 
 ### 2nd Kernel
 
-<img src="../assets/06d.png?version=16" width="1200" height="800">
+<img src="../../assets/06d.png?version=16" width="1200" height="800">
 
 ```mojo
 
@@ -150,7 +150,6 @@ print(a_2k)
 
 ```text
 DeviceBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
-
 ```
 
 ```mojo
@@ -177,7 +176,7 @@ Apply the 2 priniciples
 - convert the local ID -> global ID
 - Use the "i<size" but in 2 dimensions
 
-<img src="../assets/07d.png?version=4" width="1200" height="800">
+<img src="../../assets/07d.png?version=4" width="1200" height="800">
 
 ```
 
@@ -328,7 +327,6 @@ with out_3k.map_to_host() as out3k_host:
 32.0
 33.0
 34.0
-
 ```
 
 ## 🎯 Key Takeaways: Handling Thread-Data Mismatches
