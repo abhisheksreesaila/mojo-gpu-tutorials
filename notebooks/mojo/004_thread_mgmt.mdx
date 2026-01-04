@@ -14,11 +14,11 @@ A kernel that:
 
 ## Until now
 
-<img src="../../assets/02d.png" width="600" height="600">
+<img src="../../assets/004_thread_mgmt-1.png" width="600" height="600">
 
 ## Today
 
-<img src="../../assets/03d.png" width="800" height="600">
+<img src="../../assets/004_thread_mgmt-2.png" width="800" height="600">
 
 ```mojo
 from memory import UnsafePointer
@@ -94,7 +94,7 @@ DeviceBuffer([10.0, 11.0, 12.0, 13.0])
 
 ### 2nd Kernel
 
-<img src="../../assets/06d.png?version=16" width="1200" height="800">
+<img src="../../assets/004_thread_mgmt-3.png" width="1200" height="800">
 
 ```mojo
 
@@ -176,7 +176,7 @@ Apply the 2 priniciples
 - convert the local ID -> global ID
 - Use the "i<size" but in 2 dimensions
 
-<img src="../../assets/07d.png?version=4" width="1200" height="800">
+<img src="../../assets/004_thread_mgmt-4.png" width="1200" height="800">
 
 ```
 
@@ -260,7 +260,81 @@ print("Adding Kernel Here")
 ```
 
 ```text
-Adding Kernel Here
+/tmp/mdlab/main.mojo:26:16: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if i < size:         # // 🚫 Threads with idx >= n do nothing and return safely
+/tmp/mdlab/main.mojo:26:16: note: call 'UInt(...)' explicitly
+        if i < size:         # // 🚫 Threads with idx >= n do nothing and return safely
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:27:19: error: expression must be mutable in assignment
+            output[i] = a[i] + 10.0
+            ~~~~~~^~~
+/tmp/mdlab/main.mojo:47:48: error: no matching method in call to 'enqueue_function_checked'
+    ctx.enqueue_function_checked[add_10,add_10](
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/tmp/mdlab/main.mojo:1:1: note: candidate not viable: callee parameter 'Ts' has 'DevicePassable' type, but value has type 'fn[?, mut`2x: Bool, origin`2x1: Origin[mut], mut`2x2: Bool, origin`2x3: Origin[mut]](output: UnsafePointer[Float32, origin], a: UnsafePointer[Float32, origin], size: Int) -> None'
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:1:1: note: candidate not viable: failed to infer parameter 'declared_arg_types', it isn't used in any argument
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:1:1: note: candidate not viable: failed to infer parameter 'declared_arg_types', it isn't used in any argument
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:70:16: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if i < size:   
+               ^~~~
+/tmp/mdlab/main.mojo:70:16: note: call 'UInt(...)' explicitly
+        if i < size:   
+               ^~~~
+               UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:71:19: error: expression must be mutable in assignment
+            output[i] = a[i] + 10.0  
+            ~~~~~~^~~
+/tmp/mdlab/main.mojo:92:39: warning: `enqueue_function` is deprecated. Use `enqueue_function_checked` instead.
+    ctx_2k.enqueue_function[add_10_2k](
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/tmp/mdlab/main.mojo:1:1: note: 'enqueue_function' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:116:18: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if row < size and col < size:
+                 ^~~~
+/tmp/mdlab/main.mojo:116:18: note: call 'UInt(...)' explicitly
+        if row < size and col < size:
+                 ^~~~
+                 UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:116:33: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if row < size and col < size:
+                                ^~~~
+/tmp/mdlab/main.mojo:116:33: note: call 'UInt(...)' explicitly
+        if row < size and col < size:
+                                ^~~~
+                                UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:117:26: warning: deprecated implicit conversion from 'Int' to 'UInt'
+            output[row * size + col] = a[row * size + col] + 10.0
+                         ^~~~
+/tmp/mdlab/main.mojo:117:26: note: call 'UInt(...)' explicitly
+            output[row * size + col] = a[row * size + col] + 10.0
+                         ^~~~
+                         UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:117:19: error: expression must be mutable in assignment
+            output[row * size + col] = a[row * size + col] + 10.0
+            ~~~~~~^~~~~~~~~~~~~~~~~~
+mojo: error: failed to parse the provided Mojo source module
 ```
 
 ```mojo
@@ -280,7 +354,81 @@ print(a_3k)
 ```
 
 ```text
-DeviceBuffer([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0])
+/tmp/mdlab/main.mojo:26:16: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if i < size:         # // 🚫 Threads with idx >= n do nothing and return safely
+/tmp/mdlab/main.mojo:26:16: note: call 'UInt(...)' explicitly
+        if i < size:         # // 🚫 Threads with idx >= n do nothing and return safely
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:27:19: error: expression must be mutable in assignment
+            output[i] = a[i] + 10.0
+            ~~~~~~^~~
+/tmp/mdlab/main.mojo:47:48: error: no matching method in call to 'enqueue_function_checked'
+    ctx.enqueue_function_checked[add_10,add_10](
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/tmp/mdlab/main.mojo:1:1: note: candidate not viable: callee parameter 'Ts' has 'DevicePassable' type, but value has type 'fn[?, mut`2x: Bool, origin`2x1: Origin[mut], mut`2x2: Bool, origin`2x3: Origin[mut]](output: UnsafePointer[Float32, origin], a: UnsafePointer[Float32, origin], size: Int) -> None'
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:1:1: note: candidate not viable: failed to infer parameter 'declared_arg_types', it isn't used in any argument
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:1:1: note: candidate not viable: failed to infer parameter 'declared_arg_types', it isn't used in any argument
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:70:16: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if i < size:   
+               ^~~~
+/tmp/mdlab/main.mojo:70:16: note: call 'UInt(...)' explicitly
+        if i < size:   
+               ^~~~
+               UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:71:19: error: expression must be mutable in assignment
+            output[i] = a[i] + 10.0  
+            ~~~~~~^~~
+/tmp/mdlab/main.mojo:92:39: warning: `enqueue_function` is deprecated. Use `enqueue_function_checked` instead.
+    ctx_2k.enqueue_function[add_10_2k](
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+/tmp/mdlab/main.mojo:1:1: note: 'enqueue_function' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:116:18: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if row < size and col < size:
+                 ^~~~
+/tmp/mdlab/main.mojo:116:18: note: call 'UInt(...)' explicitly
+        if row < size and col < size:
+                 ^~~~
+                 UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:116:33: warning: deprecated implicit conversion from 'Int' to 'UInt'
+        if row < size and col < size:
+                                ^~~~
+/tmp/mdlab/main.mojo:116:33: note: call 'UInt(...)' explicitly
+        if row < size and col < size:
+                                ^~~~
+                                UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:117:26: warning: deprecated implicit conversion from 'Int' to 'UInt'
+            output[row * size + col] = a[row * size + col] + 10.0
+                         ^~~~
+/tmp/mdlab/main.mojo:117:26: note: call 'UInt(...)' explicitly
+            output[row * size + col] = a[row * size + col] + 10.0
+                         ^~~~
+                         UInt( )
+/tmp/mdlab/main.mojo:1:1: note: '@implicit' constructor 'UInt.__init__' declared here
+from memory import UnsafePointer
+^
+/tmp/mdlab/main.mojo:117:19: error: expression must be mutable in assignment
+            output[row * size + col] = a[row * size + col] + 10.0
+            ~~~~~~^~~~~~~~~~~~~~~~~~
+mojo: error: failed to parse the provided Mojo source module
 ```
 
 ```mojo
@@ -299,34 +447,6 @@ with out_3k.map_to_host() as out3k_host:
         for j in range(SIZE_3k):
             print(out3k_host[i * SIZE_3k + j])
 
-```
-
-```text
-10.0
-11.0
-12.0
-13.0
-14.0
-15.0
-16.0
-17.0
-18.0
-19.0
-20.0
-21.0
-22.0
-23.0
-24.0
-25.0
-26.0
-27.0
-28.0
-29.0
-30.0
-31.0
-32.0
-33.0
-34.0
 ```
 
 ## 🎯 Key Takeaways: Handling Thread-Data Mismatches

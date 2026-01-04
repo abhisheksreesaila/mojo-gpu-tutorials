@@ -1,0 +1,356 @@
+# 🧬 Mojo GPU Patterns: Element-wise & Vectorized Tiling
+
+In Mojo, we move beyond the basic GPU model. Instead of just **SIMT** (Single Instruction, Multiple Threads), we use **SIMD** (Single Instruction, Multiple Data) *inside* every thread.
+
+### The "Grabber" Analogy: SIMD + Threads
+
+On a standard GPU, you have thousands of "workers" (Threads).
+
+* **Traditional GPU:** Each worker picks up **1** apple at a time. 🍎
+* **Mojo Optimized:** Each worker has a **SIMD Grabber** that picks up **8** apples at once. 🍎🍎🍎🍎
+
+**Why is this faster?**
+It reduces the "Instruction Overhead." Instead of the GPU telling the workers "Pick up an apple" 4 times, it says "Grab a row" **once**. This keeps the GPU's scheduler free and the data lanes saturated.
+
+---
+
+### The Element-wise Pattern
+
+The `elementwise` function is a **Higher-Order Function**. You provide the "What" (the `add` logic), and Mojo handles the "How" (launching threads on the GPU).
+
+---
+
+```mojo
+from gpu import thread_idx, block_dim, block_idx, barrier
+from gpu.host import DeviceContext
+from gpu.host.compile import get_gpu_target
+from layout import Layout, LayoutTensor
+from utils import IndexList
+from math import log2
+from algorithm.functional import elementwise, vectorize
+from sys import simd_width_of, argv, align_of
+from testing import assert_equal
+from benchmark import Bench, BenchConfig, Bencher, BenchId, keep
+
+from memory.unsafe_pointer import UnsafePointer
+
+comptime SIZE = 64
+comptime rank = 1
+comptime layout = Layout.row_major(SIZE)
+comptime dtype = DType.float32
+comptime SIMD_WIDTH = simd_width_of[dtype, target = get_gpu_target()]()
+```
+
+```mojo
+## Element Wise 
+
+ctx = DeviceContext()
+out = ctx.enqueue_create_buffer[dtype](SIZE)
+out.enqueue_fill(0)
+a = ctx.enqueue_create_buffer[dtype](SIZE)
+a.enqueue_fill(0)
+b = ctx.enqueue_create_buffer[dtype](SIZE)
+b.enqueue_fill(0)
+expected = ctx.enqueue_create_host_buffer[dtype](SIZE)
+expected.enqueue_fill(0)
+
+with a.map_to_host() as a_host, b.map_to_host() as b_host:
+    for i in range(SIZE):
+        a_host[i] = 2 * i
+        b_host[i] = 2 * i + 1
+        expected[i] = a_host[i] + b_host[i]
+
+a_tensor = LayoutTensor[mut=False, dtype, layout](a.unsafe_ptr())
+b_tensor = LayoutTensor[mut=False, dtype, layout](b.unsafe_ptr())
+
+ctx.synchronize()
+
+print("SIZE:", SIZE)
+print("simd_width:", SIMD_WIDTH)
+
+```
+
+```text
+SIZE: 64
+simd_width: 4
+
+```
+
+> SIMD Width is the number of "lanes" in a hardware register.
+
+
+Here is the table in Markdown format:
+
+| Hardware Register | Data Type | Calculation | SIMD Width |
+| --- | --- | --- | --- |
+| **Standard Laptop (128-bit)** | Float32 (32-bit) | 128/32 | **4** |
+| **Standard Laptop (128-bit)** | Int8 (8-bit) | 128/8 | **16** |
+| **Modern Server (AVX-512)** | Float32 (32-bit) | 512/32 | **16** |
+| **Modern Server (AVX-512)** | Float64 (64-bit) | 512/64 | **8** |
+
+```mojo
+fn elementwise_add[
+    layout: Layout, dtype: DType, simd_width: Int, rank: Int, size: Int
+](
+    output: LayoutTensor[mut=True, dtype, layout, MutAnyOrigin],
+    a: LayoutTensor[mut=False, dtype, layout, MutAnyOrigin],
+    b: LayoutTensor[mut=False, dtype, layout, MutAnyOrigin],
+    ctx: DeviceContext,
+) raises:
+
+    # STEP 2 : Use SIMD concept and process multiple data elements at once
+    # Inline add function -----------------------------------------------------------------------
+    @parameter
+    @always_inline
+    fn add[
+        simd_width: Int, rank: Int, alignment: Int = align_of[dtype]()
+    ](indices: IndexList[rank]) capturing -> None:
+        idx = indices[0]
+        ## EARLIER
+        # var tid = block_idx.x * block_dim.x + thread_idx.x
+        # out_tensor[tid] = lhs_tensor[tid] + rhs_tensor[tid]  
+        ####
+        # now you have explicit control
+        a_simd = a.aligned_load[width=simd_width](idx, 0)  # load from global memory
+        b_simd = b.aligned_load[width=simd_width](idx, 0)  # load from global memory
+        ret = a_simd + b_simd                              # perform the operation
+       
+        output.aligned_store[simd_width](idx, 0, ret)      # store from global memory
+   # -----------------------------------------------------------------------
+
+    # STEP 1 : Spin up threads 
+    elementwise[add, SIMD_WIDTH, target="gpu"](a.size(), ctx)  # execute add in parallel
+
+# helps with SIMT model
+# If SIMD_WIDTH = 4: elementwise launches 250 threads. Each thread is handed an index, and it uses a SIMD-4 register to grab 4 elements.
+
+```
+
+```text
+/tmp/mdlab/main.mojo:42:54: warning: assignment to 'b_tensor' was never used; assign to '_' instead?
+    b_tensor = LayoutTensor[mut=False, dtype, layout](b.unsafe_ptr())
+                                                     ^
+```
+
+---
+
+### 1. The "1 Thread - 1 Data" Illusion (Implicit)
+
+In your earlier code:
+
+```python
+out_tensor[tid] = lhs_tensor[tid] + rhs_tensor[tid]
+
+```
+
+Even though you were writing what looked like scalar code, Mojo treats even a single scalar as a **SIMD vector of width 1**.
+
+* **The Drivers:** When you call `elementwise`, if you don't provide a large `simd_width`, Mojo launches threads where each thread handles exactly one index.
+* **The Assembly:** Behind the scenes, the GPU still uses its vector hardware, but it's only using **one "lane"** of the hardware for that thread. It works, but it's like using a 10-lane highway for a single bicycle.
+
+---
+
+### 2. The "Native SIMD" Reality (Explicit)
+
+In the new code you've written, you are **saturating the hardware**:
+
+```python
+a_simd = a.aligned_load[width=simd_width](idx, 0)
+
+```
+
+Now, you are explicitly telling Mojo: "Don't just give this thread one piece of data. Give it a **chunk** (e.g., 4, 8, or 16 elements)."
+
+**How the "Contradiction" is resolved:**
+The `elementwise` driver is smart. When you pass `SIMD_WIDTH` to it, it calculates how many threads to launch.
+
+* If you have **1024 elements** and `simd_width = 1`, Mojo launches **1024 threads**.
+* If you have **1024 elements** and `simd_width = 8`, Mojo launches **128 threads**.
+
+Each of those 128 threads now handles 8 elements at once. **1 thread is now doing the work of 8.**
+
+---
+
+### 3. Why the Explicit way is better
+
+When you use `aligned_load` with a width, you are taking advantage of **Memory Coalescing**.
+
+* **Scalar way:** 8 threads ask for 8 numbers. The memory controller has to handle 8 separate requests.
+* **SIMD way:** 1 thread asks for a block of 8 numbers. This is a "Vector Load." The hardware can grab that entire block in one single "gulp" from the VRAM. This is much faster and uses less power.
+
+---
+
+```mojo
+out_tensor = LayoutTensor[mut=True, dtype, layout](out.unsafe_ptr())
+elementwise_add[layout, dtype, SIMD_WIDTH, rank, SIZE](
+    out_tensor, a_tensor, b_tensor, ctx
+)
+
+with out.map_to_host() as out_host:
+    print("out:", out_host)
+    print("expected:", expected)
+    for i in range(SIZE):
+        assert_equal(out_host[i], expected[i])
+```
+
+```text
+out: HostBuffer([1.0, 5.0, 9.0, 13.0, 17.0, 21.0, 25.0, 29.0, 33.0, 37.0, 41.0, 45.0, 49.0, 53.0, 57.0, 61.0, 65.0, 69.0, 73.0, 77.0, 81.0, 85.0, 89.0, 93.0, 97.0, 101.0, 105.0, 109.0, 113.0, 117.0, 121.0, 125.0, 129.0, 133.0, 137.0, 141.0, 145.0, 149.0, 153.0, 157.0, 161.0, 165.0, 169.0, 173.0, 177.0, 181.0, 185.0, 189.0, 193.0, 197.0, 201.0, 205.0, 209.0, 213.0, 217.0, 221.0, 225.0, 229.0, 233.0, 237.0, 241.0, 245.0, 249.0, 253.0])
+expected: HostBuffer([1.0, 5.0, 9.0, 13.0, 17.0, 21.0, 25.0, 29.0, 33.0, 37.0, 41.0, 45.0, 49.0, 53.0, 57.0, 61.0, 65.0, 69.0, 73.0, 77.0, 81.0, 85.0, 89.0, 93.0, 97.0, 101.0, 105.0, 109.0, 113.0, 117.0, 121.0, 125.0, 129.0, 133.0, 137.0, 141.0, 145.0, 149.0, 153.0, 157.0, 161.0, 165.0, 169.0, 173.0, 177.0, 181.0, 185.0, 189.0, 193.0, 197.0, 201.0, 205.0, 209.0, 213.0, 217.0, 221.0, 225.0, 229.0, 233.0, 237.0, 241.0, 245.0, 249.0, 253.0])
+```
+
+### Vector Tiling: The "Chunking" Strategy
+
+In your `tiled_elementwise_add`, you apply **Tiling** to a 1D vector. While a Matrix Tile is a **Square**, a Vector Tile is a **Segment**.
+
+**How it works:**
+
+1. **Divide:** The long vector is chopped into tiles (e.g., `TILE_SIZE = 32`).
+2. **Assign:** Each thread is assigned **one whole tile** instead of one SIMD chunk.
+3. **Process:** The thread runs a small, fast loop (`@parameter for`) to process its 32 elements using SIMD instructions.
+
+> **Why Tile a Vector?**
+> * **Instruction Locality:** The thread stays "hot." It does `Load -> Add -> Store` repeatedly on the same cache line.
+> * **Reduced Launch Overhead:** You launch fewer threads, but each thread does more meaningful work.
+> 
+>
+
+```mojo
+comptime TILE_SIZE = 32
+```
+
+```mojo
+fn vectorize_within_tiles_elementwise_add[
+    layout: Layout,
+    dtype: DType,
+    simd_width: Int,
+    num_threads_per_tile: Int,
+    rank: Int,
+    size: Int,
+    tile_size: Int,
+](
+    output: LayoutTensor[mut=True, dtype, layout, MutAnyOrigin],
+    a: LayoutTensor[mut=False, dtype, layout, MutAnyOrigin],
+    b: LayoutTensor[mut=False, dtype, layout, MutAnyOrigin],
+    ctx: DeviceContext,
+) raises:
+    # Each tile contains tile_size elements (not SIMD groups)
+    @parameter
+    @always_inline
+    fn process_tile_with_vectorize[
+        num_threads_per_tile: Int, rank: Int, alignment: Int = align_of[dtype]()
+    ](indices: IndexList[rank]) capturing -> None:
+        var tile_id = indices[0]
+        var tile_start = tile_id * tile_size
+        var tile_end = min(tile_start + tile_size, size)
+        var actual_tile_size = tile_end - tile_start
+
+        @parameter
+        fn vectorized_add[width: Int](i: Int):
+            var global_idx = tile_start + i
+            if global_idx + width <= size:
+                var a_vec = a.aligned_load[width](global_idx, 0)
+                var b_vec = b.aligned_load[width](global_idx, 0)
+                var result = a_vec + b_vec
+                output.aligned_store[width](global_idx, 0, result)
+
+        # Use vectorize within each tile with the actual tile size (runtime value)
+        vectorize[vectorized_add, simd_width](actual_tile_size)
+
+       
+        #  you can manually vectorize using explicit SIMD and @parameter.  But need to manage start, offset, end 
+        #@parameter
+        # for i in range(tile_size):
+        #     global_start = tile_id * chunk_size + i * simd_width
+        #     a_vec = a.aligned_load[simd_width](global_start, 0)
+        #     b_vec = b.aligned_load[simd_width](global_start, 0)
+        #     ret = a_vec + b_vec
+        #     # print("tile:", tile_id, "simd_group:", i, "global_start:", global_start, "a_vec:", a_vec, "b_vec:", b_vec, "result:", ret)
+        #     output.aligned_store[simd_width](global_start, 0, ret)
+        #    
+
+
+    var num_tiles = (size + tile_size - 1) // tile_size
+    elementwise[
+        process_tile_with_vectorize, num_threads_per_tile, target="gpu"
+    ](num_tiles, ctx)
+```
+
+| Aspect | Manual Vectorization | `vectorize()` Function |
+|--------|---------------------|------------------------|
+| **Bounds Checking** | ```mojo<br>for i in range(tile_size):<br>    global_start = tile_id * chunk_size + i * simd_width<br>    # YOU must check: global_start + simd_width <= size``` | ```mojo<br>vectorize[vectorized_add, simd_width](actual_tile_size)<br># Automatic bounds checking built-in``` |
+| **Remainder Handling** | ```mojo<br># Manual cleanup needed:<br>var remainder = actual_tile_size % simd_width<br>if remainder > 0:<br>    # Handle leftover elements with scalar code``` | ```mojo<br># Automatic tail handling<br># Generates cleanup code for partial vectors``` |
+| **Code Safety** | Higher bug risk - easy to go out of bounds or miss edge cases | Memory-safe by design, handles edge cases automatically |
+| **Performance Control** | Full control over loop unrolling, instruction scheduling, register usage | Compiler-optimized, but less direct control over low-level details |
+| **Code Complexity** | ```mojo<br># More verbose, manual index management<br>for i in range(tile_size):<br>    global_start = tile_id * chunk_size + i * simd_width<br>    a_vec = a.aligned_load[simd_width](global_start, 0)``` | ```mojo<br># Clean, declarative<br>@parameter<br>fn vectorized_add[width: Int](i: Int):<br>    # Focus on the operation, not indexing``` |
+
+**Bottom Line**: Use `vectorize()` unless you need custom access patterns or have proven performance bottlenecks requiring manual control.
+
+```mojo
+out_vectorize_within_tiles_tensor = LayoutTensor[mut=True, dtype, layout](out.unsafe_ptr())
+print("tile size:", TILE_SIZE)
+vectorize_within_tiles_elementwise_add[
+        layout, dtype, SIMD_WIDTH, 1, rank, SIZE, TILE_SIZE
+    ](out_vectorize_within_tiles_tensor, a_tensor, b_tensor, ctx)
+
+with out.map_to_host() as out_host:
+    print("out:", out_host)
+    print("expected:", expected)
+    for i in range(SIZE):
+        assert_equal(out_host[i], expected[i])
+```
+
+```text
+tile size: 32
+out: HostBuffer([1.0, 5.0, 9.0, 13.0, 17.0, 21.0, 25.0, 29.0, 33.0, 37.0, 41.0, 45.0, 49.0, 53.0, 57.0, 61.0, 65.0, 69.0, 73.0, 77.0, 81.0, 85.0, 89.0, 93.0, 97.0, 101.0, 105.0, 109.0, 113.0, 117.0, 121.0, 125.0, 129.0, 133.0, 137.0, 141.0, 145.0, 149.0, 153.0, 157.0, 161.0, 165.0, 169.0, 173.0, 177.0, 181.0, 185.0, 189.0, 193.0, 197.0, 201.0, 205.0, 209.0, 213.0, 217.0, 221.0, 225.0, 229.0, 233.0, 237.0, 241.0, 245.0, 249.0, 253.0])
+expected: HostBuffer([1.0, 5.0, 9.0, 13.0, 17.0, 21.0, 25.0, 29.0, 33.0, 37.0, 41.0, 45.0, 49.0, 53.0, 57.0, 61.0, 65.0, 69.0, 73.0, 77.0, 81.0, 85.0, 89.0, 93.0, 97.0, 101.0, 105.0, 109.0, 113.0, 117.0, 121.0, 125.0, 129.0, 133.0, 137.0, 141.0, 145.0, 149.0, 153.0, 157.0, 161.0, 165.0, 169.0, 173.0, 177.0, 181.0, 185.0, 189.0, 193.0, 197.0, 201.0, 205.0, 209.0, 213.0, 217.0, 221.0, 225.0, 229.0, 233.0, 237.0, 241.0, 245.0, 249.0, 253.0])
+```
+
+### 🏎️ Why "Vectorized" is better for the *entire* cycle
+
+### 🔄 The "Straight Line" (Unrolling) Explained
+
+You asked about the "straight line" vs. "loop." Here is exactly what that looks like at the hardware level:
+
+**The "Loop" (Scalar/Naive):**
+
+1. Load 1 item.
+2. Add 1 item.
+3. Store 1 item.
+4. **Jump back to start and check: "Am I done yet?"** (This check is a wasted instruction!)
+5. Repeat 32 times.
+
+**The "Unrolled Vector" (Mojo Manual):**
+
+1. Load [0-7], Add [0-7], Store [0-7]
+2. Load [8-15], Add [8-15], Store [8-15]
+3. Load [16-23], Add [16-23], Store [16-23]
+4. Load [24-31], Add [24-31], Store [24-31]
+*(No jumps, no checks, no wasted "Am I done?" questions.)*
+
+---
+
+### 🏛️ The 2 Stages of GPU Evolution
+
+#### 1. The SIMD Power-Up (Vectorized) 🏎️
+
+* **Concept:** 1 Thread = 1 Vector (e.g., SIMD-4).
+* **The Math:** You spin up 250 threads. Each thread grabs 4 elements at once.
+* **The Reality:** You’ve cut your "Management Overhead" by 4x. This is the first step to real speed, but the threads are still finishing their job too quickly and the "Manager" (Scheduler) is still busy.
+
+#### 2. The Tiled Strategy (Local Neighborhoods) 🧱 + Vectorized 🚀
+
+* **Concept:** 1 Thread = 1 Tile (e.g., 32 elements).
+* **The Reality:** The data stays in the **L1 Cache**. The thread stays "alive" longer, doing meaningful work.
+* **Result:** Vectorized!! No "If" checks. No "jump" instructions. Just a pure, un-interrupted stream of math hitting the hardware at the speed of light.
+
+---
+
+### 📊 The "Efficiency Recap" Table
+
+| Strategy | Manager's Work (Instructions) | Hardware Lane Usage | Why it's Faster? |
+| --- | --- | --- | --- |
+| **SIMD** | ✅ Better (250 orders) | 🔥 4/4 Used | Higher "Value per order." |
+| **Tiled** | ✅ Good (Fewer Threads) | 🔥 4/4 Used | Cache stays "Hot." |
+| **Vectorized Tile** | 🏆 **Best** (Straight Line) | 🔥 4/4 Used | Zero "Loop" overhead. |
+
+---

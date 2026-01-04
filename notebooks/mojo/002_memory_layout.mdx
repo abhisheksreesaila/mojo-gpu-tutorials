@@ -5,7 +5,7 @@
 - Introduction to LayoutTensor - Powerful abstraction (or wrapper) around memory
 
 
-<img src="../../assets/gpu_memory.png?version=5" width="600" height="400">
+<img src="../../assets/002_gpu_memory.png?version=5" width="600" height="400">
 
 ## Import Libraries
 
@@ -16,6 +16,13 @@ from gpu.memory import AddressSpace
 from layout import Layout, LayoutTensor
 from math import iota
 from sys import sizeof
+```
+
+```text
+/tmp/mdlab/main.mojo:6:17: error: package 'sys' does not contain 'sizeof'
+from sys import sizeof
+                ^
+mojo: error: failed to parse the provided Mojo source module
 ```
 
 ## Few Initializations

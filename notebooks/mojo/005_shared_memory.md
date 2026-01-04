@@ -14,7 +14,7 @@ In this tutorial, you'll master:
 
 **Shared memory provides fast, block-local storage that all threads in a block can access, but requires careful coordination between threads.**
 
-<img src="../../assets/gpu_memory.png?version=5" width="600" height="400">
+<img src="../../assets/002_gpu_memory.png?version=5" width="600" height="400">
 
 ### Fundamental Question :  Is the copy worth it?   
 - Does COPY + EXECUTE (in local) > EXECUTE (global)
@@ -39,7 +39,7 @@ sum = shared[i] + shared[i+1] + shared[i+2] + shared[i+3]   # 4 fast shared memo
 
 ## 📊 Our program memory layout
 
-<img src="../../assets/08d.png?version=3" width="800" height="600">
+<img src="../../assets/005_memorylayout.png" width="800" height="600">
 
 ---
 
@@ -96,7 +96,7 @@ fn add_10_shared_layout_tensor[
 
 ```
 
-<img src="../../assets/thread_access.png" width="400" height="200">
+<img src="../../assets/005_thread_access.png" width="400" height="200">
 
 ```mojo
   # Initialize GPU context
@@ -130,10 +130,6 @@ with DeviceContext() as ctx:
 with out.map_to_host() as out_host:
         print("out:", out_host)
 
-```
-
-```text
-out: HostBuffer([11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0])
 ```
 
 ### ✅ DO Use Shared Memory When:
