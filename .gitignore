@@ -1,2 +1,6 @@
 # pixi environments
 .pixi
+
+# Mojo compiler trace files (kgen - kernel generator profiling output)
+kgen.trace.json.*
+*.kgen.trace.json
