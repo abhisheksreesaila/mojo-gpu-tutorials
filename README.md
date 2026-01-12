@@ -23,58 +23,29 @@ Hands-on tutorials for GPU programming in Mojo 🔥 | Learn kernels, threads, bl
 
 ## 🎨 Interactive Visualizations
 
-Enhance your learning with **interactive HTML visualizers** that help you understand GPU concepts visually!
+All tutorials include **embedded interactive visualizers** to help you understand GPU concepts visually!
 
-### 📊 Available Visualizations:
-- 🔄 **[GPU Algorithm Visualizer](visualize/gpu_algo_visualizer.html)** - Step through GPU algorithms
-- ⚡ **[GPU Execution Visualizer](visualize/gpu_exec_visualizer.html)** - See how threads execute
-- 📐 **[GPU Layout Visualizer](visualize/gpu_layout_visualizer.html)** - Understand memory layouts
-- 🌊 **[GPU Warp Visualizer](visualize/gpu_warp_visualizer.html)** - Visualize warp-level operations
+> 💡 **Colab Users:** Visualizations are embedded directly in the notebooks - no downloads needed! Just run and interact.
 
-### 🖥️ How to View (Local - VS Code):
-1. Install **Live Preview** extension:
-   - Open Extensions (Ctrl+Shift+X / Cmd+Shift+X)
-   - Search for **"Live Preview"** by Microsoft
-   - Click **Install**
-2. Right-click any HTML file in the `visualize/` folder
-3. Select **"Show Preview"** or **"Open with Live Server"**
-4. Interact with the visualization in your browser!
-
-### ☁️ How to View (Colab Users):
-1. Download the HTML files from the `visualize/` folder to your local machine
-2. Follow the VS Code steps above to view them locally
-3. (HTML visualizations cannot run directly in Colab, but work great locally!)
+> 🖥️ **MDX Users:** Use VS Code's **Live Preview** extension to view visualizations locally. Right-click any HTML file in `visualize/` folder → **Show Preview**.
 
 ---
 
-## 🎯 Choose Your Learning Path
+## 🚀 Getting Started with Colab (Recommended)
 
-### 📙 **Colab Notebooks (Recommended - Quick Start)**
+1. Click any Colab badge from the tutorials table above
+2. Enable GPU: Runtime → Change runtime type → T4 GPU  
+3. Run cells and explore embedded visualizations! 🔥
 
-☁️ Run on Google Colab with free T4 GPU - just click and run! No setup required.
-
-> 📝 *Note: Colab requires all Mojo code in a single block with a `main()` function.*
-
----
-
-### 📓 **MDX Notebooks (Local - True Notebook Experience)**
-
-For a full interactive notebook experience with the ability to split code across cells, use MDX notebooks locally with VS Code.
-
-**Requirements:** VS Code, Linux/macOS (Windows: WSL2), GPU optional
+> 📝 *Note: Mojo code in Colab must be in a single block with a `main()` function.*
 
 ---
 
-## 🚀 Getting Started
+## 🏠 Running MDX Notebooks Locally (Advanced)
 
-### ☁️ **For Colab Notebooks**
-1. Click any 📙 Colab link from the tutorials table above
-2. Enable GPU: Runtime → Change runtime type → T4 GPU
-3. Run cells and start learning! 🔥
+For a **full notebook experience** with code split across cells:
 
-### 🏠 **For Local MDX Notebooks**
-
-**1️⃣ Clone & Setup**
+**Setup:**
 
 ```sh
 git clone https://github.com/abhisheksreesaila/mojo-gpu-tutorials.git
@@ -85,15 +56,11 @@ pixi shell                                   # Activate environment
 code .                                       # Open in VS Code
 ```
 
-**2️⃣ Install VS Code Extensions**
-1. Open Extensions (Ctrl+Shift+X / Cmd+Shift+X)
-2. Install **"Markdown Lab"** for running notebooks
-3. Install **"Live Preview"** for HTML visualizations (optional)
+**Install Extensions:**
+- **Markdown Lab** - for running `.mdx` notebooks
+- **Live Preview** - for viewing HTML visualizations (right-click HTML files → Show Preview)
 
-**3️⃣ Run Notebooks**
-1. Open any `.mdx` file in `notebooks/mojo/`
-2. Click ▶️ Run in code cells
-3. Start learning! 🔥
+**Requirements:** VS Code, Linux/macOS (Windows: WSL2), GPU optional
 
 ---
 
