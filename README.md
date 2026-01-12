@@ -5,19 +5,19 @@ Hands-on tutorials for GPU programming in Mojo 🔥 | Learn kernels, threads, bl
 
 ## 📚 Available Tutorials
 
-| # | Topic | MDX Notebook | Colab Notebook |
-|---|-------|-------------|----------------|
-| 001 | GPU Introduction & Basics | [📓 MDX](notebooks/mojo/001_mojo_gpu_intro.mdx) | [📙 Colab](notebooks/colab/001_mojo_gpu_intro.ipynb) |
-| 002 | Memory Layout & LayoutTensor | [📓 MDX](notebooks/mojo/002_memory_layout.mdx) | [📙 Colab](notebooks/colab/002_memory_layout.ipynb) |
-| 003 | Vector Addition | [📓 MDX](notebooks/mojo/003_vector_addition.mdx) | [📙 Colab](notebooks/colab/003_vector_addition.ipynb) |
-| 004 | Thread Management | [📓 MDX](notebooks/mojo/004_thread_mgmt.mdx) | [📙 Colab](notebooks/colab/004_thread_mgmt.ipynb) |
-| 005 | Shared Memory | [📓 MDX](notebooks/mojo/005_shared_memory.md) | [📙 Colab](notebooks/colab/005_shared_memory.ipynb) |
-| 006 | Pooling Operations | [📓 MDX](notebooks/mojo/006_pooling.mdx) | [📙 Colab](notebooks/colab/006_pooling.ipynb) |
-| 007 | Convolution | [📓 MDX](notebooks/mojo/007_convolution.mdx) | [📙 Colab](notebooks/colab/007_convolution.ipynb) |
-| 008 | MAX Graph Introduction | - | [📙 Colab](notebooks/max-graph/008_max_graph_intro.ipynb) |
-| 009 | Matrix Multiplication | [📓 MDX](notebooks/mojo/009_matmul.mdx) | [📙 Colab](notebooks/colab/009_matmul.ipynb) |
-| 010 | Functional Programming in Mojo | [📓 MDX](notebooks/mojo/010_mojo_functional_pgm.mdx) | [📙 Colab](notebooks/colab/010_mojo_functional_pgm.ipynb) |
-| 011 | Warp-Level Programming | [📓 MDX](notebooks/mojo/011_warp.mdx) | [📙 Colab](notebooks/colab/011_warp.ipynb) |
+| # | Topic | MDX | Colab | Video |
+|---|-------|-----|-------|-------|
+| 001 | GPU Introduction & Basics | [📓 MDX](notebooks/mojo/001_mojo_gpu_intro.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/001_mojo_gpu_intro.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/1ucrzda5TvU) |
+| 002 | Memory Layout & LayoutTensor | [📓 MDX](notebooks/mojo/002_memory_layout.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/002_memory_layout.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/K89aUepjcig) |
+| 003 | Vector Addition | [📓 MDX](notebooks/mojo/003_vector_addition.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/003_vector_addition.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/ryD56kuQ5F8) |
+| 004 | Thread Management | [📓 MDX](notebooks/mojo/004_thread_mgmt.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/004_thread_mgmt.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/RNnsdTHdkSc) |
+| 005 | Shared Memory | [📓 MDX](notebooks/mojo/005_shared_memory.md) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/005_shared_memory.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/SVEnuNtLqjQ) |
+| 006 | Pooling Operations | [📓 MDX](notebooks/mojo/006_pooling.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/006_pooling.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/51OI9vaB5Qo) |
+| 007 | Convolution | [📓 MDX](notebooks/mojo/007_convolution.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/007_convolution.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/7ylxdKHeZg0) |
+| 008 | MAX Graph Introduction | - | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/max-graph/008_max_graph_intro.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/Az5cKbgUBZ4) |
+| 009 | Matrix Multiplication | [📓 MDX](notebooks/mojo/009_matmul.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/009_matmul.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/W19HynWZMSw) |
+| 010 | Functional Programming in Mojo | [📓 MDX](notebooks/mojo/010_mojo_functional_pgm.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/010_mojo_functional_pgm.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/IKFvAQCFMwo) |
+| 011 | Warp-Level Programming | [📓 MDX](notebooks/mojo/011_warp.mdx) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/abhisheksreesaila/mojo-gpu-tutorials/blob/main/notebooks/colab/011_warp.ipynb) | [![YouTube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/DS_8Ff0f-0Q) |
 
 ---
 
@@ -49,122 +49,59 @@ Enhance your learning with **interactive HTML visualizers** that help you unders
 
 ## 🎯 Choose Your Learning Path
 
-### 📓 **Method 1: MDX Notebooks (Local - Recommended for Best Experience)**
+### 📙 **Colab Notebooks (Recommended - Quick Start)**
 
-✅ **Pros:**
-- 🎨 Pure notebook experience with interactive cells
-- 🔄 Split code across multiple cells for step-by-step execution
-- 🏃 Run cells independently and experiment freely
-- 💻 Full local development environment
+☁️ Run on Google Colab with free T4 GPU - just click and run! No setup required.
 
-❌ **Cons:**
-- 🖥️ Requires local setup (VS Code + Pixi + GPU)
-- 🐧 Linux/macOS only (Windows users need WSL2)
-
-**Perfect for:** Deep learning and experimentation with full flexibility
+> 📝 *Note: Colab requires all Mojo code in a single block with a `main()` function.*
 
 ---
 
-### 📙 **Method 2: Colab Notebooks (Cloud - Quick Start)**
+### 📓 **MDX Notebooks (Local - True Notebook Experience)**
 
-✅ **Pros:**
-- ☁️ Run on Google Colab with free T4 GPU
-- 🚀 No local installation required
-- 🌐 Access from anywhere
-- 💰 Free GPU compute
+For a full interactive notebook experience with the ability to split code across cells, use MDX notebooks locally with VS Code.
 
-❌ **Cons:**
-- ⚠️ **Important Limitation:** Entire Mojo program must be in a single code block
-- 🚫 Cannot split code across multiple cells for true notebook experience
-- 📦 Less flexibility for experimentation
-
-**Perfect for:** Quick start, testing, or if you don't have a local GPU
-
-> **📝 Note:** Due to how IPython notebooks execute Mojo code in Colab, you must write your complete program in one cell. This means you cannot define a function in one cell and call it in another - everything must be together.
+**Requirements:** VS Code, Linux/macOS (Windows: WSL2), GPU optional
 
 ---
 
-# 🚀 Getting Started
+## 🚀 Getting Started
 
-## 📋 Prerequisites
+### ☁️ **For Colab Notebooks**
+1. Click any 📙 Colab link from the tutorials table above
+2. Enable GPU: Runtime → Change runtime type → T4 GPU
+3. Run cells and start learning! 🔥
 
-### For MDX Notebooks (Local):
-- 🖥️ **VS Code** installed ([Download here](https://code.visualstudio.com/))
-- 🐧 **Linux** or **macOS** (Windows users: use WSL2)
-- 🎮 **NVIDIA/AMD GPU** (optional, but recommended for GPU tutorials)
+### 🏠 **For Local MDX Notebooks**
 
-### For Colab Notebooks (Cloud):
-- 🌐 Google account for Colab access
-- ☁️ Free T4 GPU provided by Colab
-
----
-
-## ⚡ Setup Instructions
-
-### 🏠 Local Setup (MDX Notebooks)
-
-### 1️⃣ Clone the Repository
+**1️⃣ Clone & Setup**
 
 ```sh
 git clone https://github.com/abhisheksreesaila/mojo-gpu-tutorials.git
 cd mojo-gpu-tutorials
+curl -fsSL https://pixi.sh/install.sh | sh  # Install Pixi
+pixi add mojo                                # Install Mojo
+pixi shell                                   # Activate environment
+code .                                       # Open in VS Code
 ```
 
-### 2️⃣ Install Pixi (Package Manager)
-
-If you don't have `pixi` installed:
-
-```sh
-curl -fsSL https://pixi.sh/install.sh | sh
-```
-
-> 💡 Pixi manages all dependencies automatically - no manual setup needed!
-
-### 3️⃣ Install Mojo
-
-```sh
-pixi add mojo
-```
-
-Choose your version:
-- 🌙 **Nightly** - Latest features (for adventurers)
-- ✅ **Stable** - Recommended for learning
-
-### 4️⃣ Activate the Environment
-
-```sh
-pixi shell
-```
-
-You should see `(mojo_monday)` in your terminal prompt 🎉
-
-### 5️⃣ Open in VS Code
-
-```sh
-code .
-```
-
-### 6️⃣ Install Markdown Lab Extension
-
-In VS Code:
+**2️⃣ Install VS Code Extensions**
 1. Open Extensions (Ctrl+Shift+X / Cmd+Shift+X)
-2. Search for **"Markdown Lab"**
-3. Click **Install**
+2. Install **"Markdown Lab"** for running notebooks
+3. Install **"Live Preview"** for HTML visualizations (optional)
+
+**3️⃣ Run Notebooks**
+1. Open any `.mdx` file in `notebooks/mojo/`
+2. Click ▶️ Run in code cells
+3. Start learning! 🔥
 
 ---
 
-## 🎯 Run Your First Notebook
+## 🙏 Acknowledgements
 
-### For MDX Notebooks:
-1. Open any `.mdx` file in the `notebooks/mojo/` folder
-2. Click the **▶️ Run** button in any code cell
-3. Watch Mojo magic happen! 🔥
+The code examples and implementations in these tutorials are adapted from [Modular's GPU Puzzles](https://github.com/modular/mojo/tree/main/examples/notebooks/gpu-puzzles) and the [official Mojo documentation](https://docs.modular.com/mojo/). These materials have been reorganized and enhanced with detailed explanations to make GPU programming concepts more accessible to learners.
 
-### For Colab Notebooks:
-1. Open any `.ipynb` file in the `notebooks/colab/` folder in Google Colab
-2. Enable GPU: Runtime → Change runtime type → T4 GPU
-3. Run cells sequentially
-4. **Remember:** Keep your complete Mojo program in a single code block
+Special thanks to the Modular team for their excellent documentation and examples.
 
 ---
 
