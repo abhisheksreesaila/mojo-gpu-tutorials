@@ -138,10 +138,7 @@ fn elementwise_add[
 
 In your earlier code:
 
-```python
 out_tensor[tid] = lhs_tensor[tid] + rhs_tensor[tid]
-
-```
 
 Even though you were writing what looked like scalar code, Mojo treats even a single scalar as a **SIMD vector of width 1**.
 
@@ -154,10 +151,7 @@ Even though you were writing what looked like scalar code, Mojo treats even a si
 
 In the new code you've written, you are **saturating the hardware**:
 
-```python
 a_simd = a.aligned_load[width=simd_width](idx, 0)
-
-```
 
 Now, you are explicitly telling Mojo: "Don't just give this thread one piece of data. Give it a **chunk** (e.g., 4, 8, or 16 elements)."
 
@@ -277,11 +271,34 @@ fn vectorize_within_tiles_elementwise_add[
 
 | Aspect | Manual Vectorization | `vectorize()` Function |
 |--------|---------------------|------------------------|
-| **Bounds Checking** | ```mojo<br>for i in range(tile_size):<br>    global_start = tile_id * chunk_size + i * simd_width<br>    # YOU must check: global_start + simd_width <= size``` | ```mojo<br>vectorize[vectorized_add, simd_width](actual_tile_size)<br># Automatic bounds checking built-in``` |
-| **Remainder Handling** | ```mojo<br># Manual cleanup needed:<br>var remainder = actual_tile_size % simd_width<br>if remainder > 0:<br>    # Handle leftover elements with scalar code``` | ```mojo<br># Automatic tail handling<br># Generates cleanup code for partial vectors``` |
+| **Remainder Handling** | Manual cleanup needed - must check remainder and handle leftover elements with scalar code | Automatic tail handling - compiler generates cleanup code for partial vectors |
 | **Code Safety** | Higher bug risk - easy to go out of bounds or miss edge cases | Memory-safe by design, handles edge cases automatically |
 | **Performance Control** | Full control over loop unrolling, instruction scheduling, register usage | Compiler-optimized, but less direct control over low-level details |
-| **Code Complexity** | ```mojo<br># More verbose, manual index management<br>for i in range(tile_size):<br>    global_start = tile_id * chunk_size + i * simd_width<br>    a_vec = a.aligned_load[simd_width](global_start, 0)``` | ```mojo<br># Clean, declarative<br>@parameter<br>fn vectorized_add[width: Int](i: Int):<br>    # Focus on the operation, not indexing``` |
+| **Code Complexity** | More verbose with manual index management (`global_start = tile_id * chunk_size + i * simd_width`) | Clean and declarative - focus on the operation, not indexing |
+
+**Manual Vectorization Example:**
+```mojo
+# Manual cleanup needed:
+var remainder = actual_tile_size % simd_width
+if remainder > 0:
+    # Handle leftover elements with scalar code
+    
+# More verbose, manual index management
+for i in range(tile_size):
+    global_start = tile_id * chunk_size + i * simd_width
+    a_vec = a.aligned_load[simd_width](global_start, 0)
+```
+
+**Using `vectorize()` Function:**
+```mojo
+# Automatic tail handling
+# Generates cleanup code for partial vectors
+
+# Clean, declarative
+@parameter
+fn vectorized_add[width: Int](i: Int):
+    # Focus on the operation, not indexing
+```
 
 **Bottom Line**: Use `vectorize()` unless you need custom access patterns or have proven performance bottlenecks requiring manual control.
 
