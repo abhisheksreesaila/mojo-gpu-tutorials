@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mojo GPU SQL: Threshold Filter</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0b0e14; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .block-container { background: #1c2128; border: 2px solid #00ff88; border-radius: 12px; padding: 25px; width: 950px; }
+        
+        .sql-terminal { background: #000; border-radius: 6px; padding: 15px; margin-bottom: 25px; border: 1px solid #333; font-family: 'Fira Code', monospace; font-size: 14px; }
+        .sql-keyword { color: #ff79c6; }
+        .sql-ident { color: #50fa7b; }
+        .sql-num { color: #bd93f9; }
+
+        .threads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .warp-group { background: #0d1117; border: 1px solid #30363d; padding: 10px; border-radius: 8px; }
+        .warp-label { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-bottom: 10px; text-align: center; }
+        
+        .lanes { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+        .lane { 
+            width: 26px; height: 85px; background: #1a1a1a; border-radius: 4px; border: 1px solid #333;
+            display: flex; flex-direction: column; align-items: center; transition: 0.3s; overflow: hidden;
+        }
+        
+        .reg-data { font-size: 9px; color: #888; height: 30%; display: flex; align-items: center; justify-content: center; width: 100%; border-bottom: 1px solid #222; font-weight: bold; }
+        .reg-logic { font-size: 9px; color: #444; height: 30%; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border-bottom: 1px solid #222; text-align: center; line-height: 1; }
+        .reg-index { font-family: monospace; font-size: 10px; color: #ff4500; height: 40%; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; background: rgba(255,69,0,0.05); }
+        .idx-label { font-size: 6px; text-transform: uppercase; color: #ff4500; opacity: 0.6; margin-bottom: 1px;}
+
+        .output-buffer { margin-top: 40px; padding: 20px; border-top: 1px solid #333; display: flex; flex-direction: column; align-items: center; }
+        .cells { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+        .cell { width: 28px; height: 28px; border: 1px solid #222; border-radius: 3px; background: #0d1117; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #00ff88; transition: 0.5s; opacity: 0.2; }
+
+        .status-box { background: #161b22; padding: 15px; border-radius: 8px; border-left: 4px solid #00ff88; margin-top: 25px; width: 100%; box-sizing: border-box; }
+        
+        .is-match { border-color: #00ff88 !important; background: #0d2118; }
+        .is-match .reg-data { color: #fff; background: rgba(0,255,136,0.1); }
+        .is-match .reg-logic { color: #00ff88; }
+        .active-cell { opacity: 1; border-color: #00ff88; transform: scale(1.1); background: #112a1e; }
+        
+        button { padding: 12px 30px; cursor: pointer; border: none; border-radius: 6px; background: #00ff88; color: black; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        button:hover { background: #33ffaa; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+    <div class="block-container">
+        <div class="sql-terminal">
+            <span class="sql-keyword">SELECT</span> data_val <span class="sql-keyword">FROM</span> thread_block <br>
+            <span class="sql-keyword">WHERE</span> data_val >= <span class="sql-num">10</span> <br>
+            <span class="sql-keyword">INTO</span> output_buffer[<span style="color:#ff4500;">prefix_sum_idx</span>]
+        </div>
+
+        <div class="threads-grid" id="main-grid">
+            <div class="warp-group"><div class="warp-label">Warp 0</div><div class="lanes" id="lanes-0"></div></div>
+            <div class="warp-group"><div class="warp-label">Warp 1</div><div class="lanes" id="lanes-1"></div></div>
+            <div class="warp-group"><div class="warp-label">Warp 2</div><div class="lanes" id="lanes-2"></div></div>
+            <div class="warp-group"><div class="warp-label">Warp 3</div><div class="lanes" id="lanes-3"></div></div>
+        </div>
+
+        <div class="output-buffer">
+            <div style="font-size: 9px; color: #555; margin-bottom: 10px; text-transform: uppercase;">Filtered Result Set (Compacted)</div>
+            <div class="cells" id="cells"></div>
+        </div>
+
+        <div class="status-box">
+            <div id="step-title" style="font-weight: bold; color: #00ff88; margin-bottom: 5px;">Ready to Filter</div>
+            <div id="step-desc" style="font-size: 13px; color: #adbac7;">Each thread will compare its value against 10. <span style="color:#00ff88;">Matches</span> will compute a <span style="color:#ff4500;">write address</span>.</div>
+        </div>
+
+        <div style="margin-top: 25px; text-align: center;">
+            <button id="startBtn" onclick="runSql()">Execute WHERE val >= 10</button>
+        </div>
+    </div>
+
+    <script>
+        const matches = [];
+        const threadData = [];
+        const threshold = 10;
+
+        for (let w = 0; w < 4; w++) {
+            const container = document.getElementById(`lanes-${w}`);
+            for (let i = 0; i < 32; i++) {
+                const dataVal = Math.floor(Math.random() * 20); // Values 0-19
+                const isMatch = dataVal >= threshold ? 1 : 0;
+                matches.push(isMatch);
+                threadData.push(dataVal);
+
+                const l = document.createElement('div');
+                l.className = 'lane';
+                l.id = `t-${w}-${i}`;
+                l.innerHTML = `
+                    <div class="reg-data">${dataVal}</div>
+                    <div class="reg-logic">${isMatch === 1 ? 'TRUE' : 'FALSE'}</div>
+                    <div class="reg-index"><span class="idx-label">ADDR</span><span id="idx-${w}-${li=i}">-</span></div>
+                `;
+                container.appendChild(l);
+            }
+        }
+
+        const cellContainer = document.getElementById('cells');
+        for(let i=0; i<64; i++) {
+            const c = document.createElement('div');
+            c.className = 'cell';
+            c.id = `c-${i}`;
+            c.innerText = '·';
+            cellContainer.appendChild(c);
+        }
+
+        async function runSql() {
+            document.getElementById('startBtn').disabled = true;
+            const title = document.getElementById('step-title');
+            const desc = document.getElementById('step-desc');
+
+            title.innerText = "Phase 1: Computing Addresses for Matches";
+            desc.innerHTML = "Generating 1 (True) for all values >= 10. Counting matches to find the <span style='color:#ff4500;'>Orange Address</span>.";
+            
+            let count = 0;
+            const activeThreads = [];
+
+            for (let i = 0; i < 128; i++) {
+                const w = Math.floor(i / 32);
+                const li = i % 32;
+                const idxEl = document.getElementById(`idx-${w}-${li}`);
+                const laneEl = document.getElementById(`t-${w}-${li}`);
+                
+                idxEl.innerText = count;
+
+                if (matches[i] === 1) {
+                    laneEl.classList.add('is-match');
+                    activeThreads.push({globalIdx: i, writeIdx: count});
+                    count++;
+                }
+                if (i % 8 === 0) await new Promise(r => setTimeout(r, 30));
+            }
+
+            await new Promise(r => setTimeout(r, 600));
+
+            title.innerText = "Phase 2: Compacting Data into Buffer";
+            desc.innerText = "Only threads where the predicate is TRUE move their 'data_val' into the packed buffer.";
+
+            for (const t of activeThreads) {
+                const cell = document.getElementById(`c-${t.writeIdx}`);
+                cell.innerText = threadData[t.globalIdx];
+                cell.classList.add('active-cell');
+                await new Promise(r => setTimeout(r, 80));
+            }
+
+            title.innerText = "✅ Filtering Complete";
+            desc.innerHTML = `Found <b>${count}</b> rows where value >= 10. They have been packed contiguously. <button onclick="location.reload()" style="font-size:10px; padding:2px 10px; margin-left:20px;">Reset</button>`;
+        }
+    </script>
+</body>
+</html>
