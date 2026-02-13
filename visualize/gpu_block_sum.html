@@ -2,145 +2,130 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mojo Block Visualizer: block.sum()</title>
+    <title>Mojo Block Sum: Hardware Primitive</title>
     <style>
         body { font-family: 'Inter', sans-serif; background: #0b0e14; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .block-container { background: #1c2128; border: 2px solid #ff4500; border-radius: 12px; padding: 20px; width: 950px; position: relative; }
+        .block-container { background: #1c2128; border: 2px solid #00ff88; border-radius: 12px; padding: 30px; width: 950px; position: relative; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
-        .mojo-orange { color: #ff4500; font-weight: bold; }
+        .threads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 40px; }
+        .warp-group { background: #0d1117; border: 1px solid #30363d; padding: 10px; border-radius: 8px; position: relative; }
+        .warp-label { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-bottom: 10px; text-align: center; }
+        
+        .lanes { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+        .lane { 
+            width: 24px; height: 35px; background: #1a1a1a; border-radius: 3px; border: 1px solid #333;
+            display: flex; align-items: center; justify-content: center; font-size: 10px; color: #666; transition: 0.3s;
+        }
 
-        /* Grid for 128 Threads */
-        .threads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-        .warp-group { background: #0d1117; border: 1px solid #30363d; padding: 10px; border-radius: 8px; }
-        .warp-label { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-bottom: 8px; text-align: center; }
-        
-        .lanes { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; }
-        .lane { width: 22px; height: 22px; background: #222; border-radius: 2px; font-size: 9px; display: flex; align-items: center; justify-content: center; transition: 0.3s; color: #555; border: 1px solid #333; }
+        /* The Hardware Primitive "Funnel" */
+        .primitive-box {
+            width: 100%; height: 100px; background: linear-gradient(180deg, rgba(0,255,136,0.1) 0%, rgba(0,255,136,0.02) 100%);
+            border: 2px dashed #00ff88; border-radius: 12px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; position: relative; overflow: hidden;
+        }
+        .primitive-label { font-weight: bold; color: #00ff88; letter-spacing: 2px; font-size: 18px; margin-bottom: 5px;}
+        .primitive-sub { font-size: 10px; color: #8b949e; }
 
-        /* Shared Memory visualization */
-        .shared-mem-row { display: flex; justify-content: center; gap: 40px; margin: 30px 0; position: relative; }
-        .shmem-slot { width: 60px; height: 40px; border: 2px dashed #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: monospace; transition: 0.5s; }
+        /* The Result Slot */
+        .result-slot { margin-top: 30px; display: flex; flex-direction: column; align-items: center; }
+        .result-circle { 
+            width: 80px; height: 80px; border: 3px solid #00ff88; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; font-size: 20px; 
+            font-weight: bold; color: #00ff88; background: #112a1e; box-shadow: 0 0 20px rgba(0,255,136,0.3);
+            opacity: 0; transform: scale(0.5); transition: 0.5s;
+        }
+
+        .status-box { background: #161b22; padding: 15px; border-radius: 8px; border-left: 4px solid #00ff88; margin-top: 25px; width: 100%; box-sizing: border-box; }
         
-        .status-box { background: #161b22; padding: 15px; border-radius: 8px; border-left: 4px solid #ff4500; margin-top: 20px; width: 100%; box-sizing: border-box; }
+        /* Animation States */
+        .lane-active { background: #00ff88; color: #000; border-color: #fff; transform: translateY(10px); opacity: 0; }
+        .show-result { opacity: 1; transform: scale(1); }
         
-        /* Animations */
-        .active-warp { border-color: #ff4500 !important; box-shadow: 0 0 10px rgba(255,69,0,0.3); }
-        .computing { background: #ff4500 !important; color: white !important; }
-        .shmem-filled { border-style: solid; border-color: #00ff88; color: #00ff88; transform: scale(1.1); box-shadow: 0 0 15px rgba(0,255,136,0.2); }
-        .final-result { background: #00ff88 !important; color: black !important; font-weight: bold; transform: scale(1.2); }
-        
-        button { padding: 10px 25px; cursor: pointer; border: none; border-radius: 5px; background: #ff4500; color: white; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #ff6a33; }
-        button:disabled { background: #333; cursor: not-allowed; }
+        button { padding: 12px 30px; cursor: pointer; border: none; border-radius: 6px; background: #00ff88; color: black; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #33ffaa; transform: scale(1.05); }
     </style>
 </head>
 <body>
 
-    <h1>🧱 Mojo Block Reduction: <code>block.sum()</code></h1>
-
     <div class="block-container">
-        <div class="header">
-            <div><span class="mojo-orange">GPU Block</span> (128 Threads)</div>
-            <button id="startBtn" onclick="runReduction()">Run block.sum()</button>
-        </div>
+        <h2 style="text-align:center; color:#00ff88; margin-top:0;">🚀 Mojo block.sum()</h2>
+        <p style="text-align:center; font-size:12px; color:#8b949e; margin-bottom:30px;">
+            Coordinating 128 Threads via Hardware Primitives (Zero Manual LDS)
+        </p>
 
         <div class="threads-grid">
-            <div class="warp-group" id="warp-0">
-                <div class="warp-label">Warp 0 (T0-31)</div>
-                <div class="lanes" id="lanes-0"></div>
-            </div>
-            <div class="warp-group" id="warp-1">
-                <div class="warp-label">Warp 1 (T32-63)</div>
-                <div class="lanes" id="lanes-1"></div>
-            </div>
-            <div class="warp-group" id="warp-2">
-                <div class="warp-label">Warp 2 (T64-95)</div>
-                <div class="lanes" id="lanes-2"></div>
-            </div>
-            <div class="warp-group" id="warp-3">
-                <div class="warp-label">Warp 3 (T96-127)</div>
-                <div class="lanes" id="lanes-3"></div>
-            </div>
+            <div class="warp-group"><div class="warp-label">Warp 0</div><div class="lanes" id="lanes-0"></div></div>
+            <div class="warp-group"><div class="warp-label">Warp 1</div><div class="lanes" id="lanes-1"></div></div>
+            <div class="warp-group"><div class="warp-label">Warp 2</div><div class="lanes" id="lanes-2"></div></div>
+            <div class="warp-group"><div class="warp-label">Warp 3</div><div class="lanes" id="lanes-3"></div></div>
         </div>
 
-        <div class="shared-mem-row">
-            <div id="sh-0" class="shmem-slot">W0 sum</div>
-            <div id="sh-1" class="shmem-slot">W1 sum</div>
-            <div id="sh-2" class="shmem-slot">W2 sum</div>
-            <div id="sh-3" class="shmem-slot">W3 sum</div>
-            <div style="position: absolute; top: -20px; font-size: 10px; color: #00ff88; letter-spacing: 2px;">SHARED MEMORY BUS (LDS)</div>
+        <div class="primitive-box">
+            <div class="primitive-label">MOJO HARDWARE BUS</div>
+            <div class="primitive-sub">Automatic Cross-Warp Reduction</div>
+        </div>
+
+        <div class="result-slot">
+            <div style="font-size: 10px; color: #8b949e; margin-bottom: 10px;">THREAD 0: TOTAL_SUM</div>
+            <div class="result-circle" id="final-result">0</div>
         </div>
 
         <div class="status-box">
-            <div id="step-title" style="font-weight: bold; color: #ff4500; margin-bottom: 5px;">Idle</div>
-            <div id="step-desc" style="font-size: 14px; color: #adbac7;">Ready to reduce 128 elements into 1 scalar.</div>
+            <div id="step-title" style="font-weight: bold; color: #00ff88; margin-bottom: 5px;">Idle</div>
+            <div id="step-desc" style="font-size: 13px; color: #adbac7;">Each thread holds a private <b>my_value</b>. No shared memory needed in your code.</div>
+        </div>
+
+        <div style="margin-top: 25px; text-align: center;">
+            <button id="startBtn" onclick="runReduction()">Run block.sum()</button>
         </div>
     </div>
 
     <script>
-        // Setup lanes
+        const values = [];
         for (let w = 0; w < 4; w++) {
             const container = document.getElementById(`lanes-${w}`);
             for (let i = 0; i < 32; i++) {
+                const val = Math.floor(Math.random() * 10);
+                values.push(val);
                 const l = document.createElement('div');
                 l.className = 'lane';
                 l.id = `t-${w}-${i}`;
-                l.innerText = Math.floor(Math.random() * 10);
+                l.innerText = val;
                 container.appendChild(l);
             }
         }
 
         async function runReduction() {
-            const btn = document.getElementById('startBtn');
+            document.getElementById('startBtn').disabled = true;
             const title = document.getElementById('step-title');
             const desc = document.getElementById('step-desc');
-            btn.disabled = true;
+            const resultCircle = document.getElementById('final-result');
 
-            // STEP 1: Intra-Warp Shuffle
-            title.innerText = "Step 1: Intra-Warp Shuffle (Parallel)";
-            desc.innerText = "All 4 warps are simultaneously performing high-speed butterfly shuffles using GPU hardware registers.";
-            
-            for(let w=0; w<4; w++) document.getElementById(`warp-${w}`).classList.add('active-warp');
-            
-            // Animation for shuffles
-            for(let i=0; i<32; i++) {
-                for(let w=0; w<4; w++) document.getElementById(`t-${w}-${i}`).classList.add('computing');
-                if(i % 8 === 0) await new Promise(r => setTimeout(r, 100));
+            title.innerText = "Step 1: Thread Data Submission";
+            desc.innerText = "All 128 threads submit their private values into the hardware reduction pipeline.";
+
+            const total = values.reduce((a, b) => a + b, 0);
+
+            for (let i = 0; i < 128; i++) {
+                const w = Math.floor(i / 32);
+                const li = i % 32;
+                const lane = document.getElementById(`t-${w}-${li}`);
+                lane.classList.add('lane-active');
+                if (i % 8 === 0) await new Promise(r => setTimeout(r, 20));
             }
 
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 500));
+            title.innerText = "Step 2: Hardware Calculation";
+            desc.innerText = "The Mojo primitive performs butterfly shuffles and automated coordination behind the scenes.";
 
-            // STEP 2: Write to Shared Memory
-            title.innerText = "Step 2: Shared Memory Stage";
-            desc.innerText = "Warp-level leaders write their partial sums to Shared Memory (LDS) so warps can communicate.";
-            
-            let warpSums = [];
-            for(let w=0; w<4; w++) {
-                let sum = 0;
-                for(let i=0; i<32; i++) sum += parseInt(document.getElementById(`t-${w}-${i}`).innerText);
-                warpSums.push(sum);
-                
-                const slot = document.getElementById(`sh-${w}`);
-                slot.innerText = sum;
-                slot.classList.add('shmem-filled');
-                await new Promise(r => setTimeout(r, 400));
-            }
-
-            // STEP 3: Final Cross-Warp Reduction
-            title.innerText = "Step 3: Final Reduction (Thread 0)";
-            desc.innerText = "Thread 0 reads the 4 partial sums from Shared Memory and computes the final total for the entire block.";
-            
             await new Promise(r => setTimeout(r, 800));
-            const total = warpSums.reduce((a, b) => a + b, 0);
-            
-            // Highlight result
-            const t0 = document.getElementById('t-0-0');
-            t0.innerText = total;
-            t0.classList.add('final-result');
-            
-            title.innerText = "✅ block.sum() Complete";
-            desc.innerHTML = `Block-level total: <b>${total}</b>. Result is stored in Thread 0. <button onclick="location.reload()" style="font-size:10px; padding:2px 10px; margin-left:20px;">Reset</button>`;
+            title.innerText = "Step 3: Result Delivery";
+            desc.innerText = "The final total is delivered specifically to Thread 0's register.";
+
+            resultCircle.innerText = total;
+            resultCircle.classList.add('show-result');
+
+            desc.innerHTML = `Reduction complete! Total: <b>${total}</b>. <button onclick="location.reload()" style="font-size:10px; padding:2px 10px; margin-left:20px;">Reset</button>`;
         }
     </script>
 </body>
